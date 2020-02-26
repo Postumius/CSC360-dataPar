@@ -27,7 +27,8 @@ void* chunk_fold1(void* argument) {
 
 void* para_fold1(void* (*f)(void*, void*), void** inputs,
                int length, int nthreads) {
- 
+
+  if (nthreads > length) nthreads = length;
   pthread_t threads[nthreads];
   int chunk_size = (nthreads > 0)? length / nthreads: 0;
   int nintermeds = (length - nthreads*chunk_size != 0)? nthreads+1: nthreads;

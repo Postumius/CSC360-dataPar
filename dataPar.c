@@ -5,7 +5,6 @@
 #include "fold1.h"
 #include "util.h"
 
-#define M 3651
 
 double** read_data_points(int nlines, char* filename) {
   FILE* fl = fopen(filename, "r");
@@ -51,13 +50,14 @@ typedef struct SAR_arg {
   double a1;
   double a2;
   double** points;
+  size_t npoints;
 } SAR_arg;
 
 void* SAR(void* argument) {
   SAR_arg* arg = (SAR_arg*) argument;
   double* sum = (double*)malloc(sizeof(double));
   *sum = 0;
-  for(int i = 0; i<M; i++) {
+  for(int i = 0; i<arg->npoints; i++) {
     double t = arg->points[i][0];
     double d = arg->points[i][1];
     *sum += abs_val(d - (arg->a1 + arg->a2*t));
@@ -65,63 +65,77 @@ void* SAR(void* argument) {
   return sum;
 }
   
-/*
-void* SAR(void* pair) {
-  double* sum = (double*)malloc(sizeof(double));
-  *sum = 0;
-  double a1 = *((double**)pair)[0];
-  double a2 = *((double**)pair)[1];
-  for(int i = 0; i<M; i++) {
-    double t = points[i][0];
-    double d = points[i][1];
-    *sum += abs_val(d - (a1 + a2*t));
-  }
-  return sum;
-}
-*/
-
-int main() {
-  double** points = read_data_points(M, "stremflow_time_series.csv");
-  
-  int size = choose(M,2);
-  printf("M choose 2: %d\n", size);
+void SAR_test(double** points, size_t npoints) {
+  printf("computing min SAR on %ld points\n", npoints);
+  int nlines = choose(npoints, 2);
 
  
-  SAR_arg** A = malloc(sizeof(SAR_arg*) * size);
+  SAR_arg** lines = malloc(sizeof(SAR_arg*) * nlines);
   int k = 0;
-  for(int i=0; i<M-1; i++) {
-    for(int j=i+1; j<M; j++) {
+  for(int i=0; i<npoints-1; i++) {
+    for(int j=i+1; j<npoints; j++) {
       double m =
         slope(points[i][0], points[i][1],
               points[j][0], points[j][1]);
       double b = intercept(points[i][0], points[i][1], m);
-      /*
-      A[k] = malloc(sizeof(double*) *2);
-      A[k][0] = malloc(sizeof(double));
-      A[k][1] = malloc(sizeof(double));
-      *A[k][0] = b;
-      *A[k][1] = m;
-      */
-      A[k] = malloc(sizeof(SAR_arg));
-      A[k]->a1 = b;
-      A[k]->a2 = m;
-      //A[k]->points = malloc(sizeof(double*));
-      A[k]->points = points;            
-      //printf("%f %f\n", A[k]->a1, A[k]->a2);
+      lines[k] = malloc(sizeof(SAR_arg));
+      lines[k]->a1 = b;
+      lines[k]->a2 = m;
+      lines[k]->points = points;
+      lines[k]->npoints = npoints;
       k++;      
     }
   }
-  printf("built A\n");
+  
+  int nthreads_per_test[3] = {0,3,7};
 
-  size_t t0 = time_ms();
-  double** SAR_arr = (double**)para_map(SAR, (void**)A, size, 31);
-  size_t t1 = time_ms();
-  printf("Map: %ld ms\n", t1-t0);
+  for(int i=0; i<3; i++) {
+    printf("with %d threads\n", nthreads_per_test[i]+1);
   
-  double* minSAR = (double*)para_fold1(min, (void**)SAR_arr, size, 31);
-  size_t t3 = time_ms();
-  printf("fold: %ld ms\n", t3-t1);
+    size_t t0 = time_ms();
   
-  printf("minimum SAR: %f\n", *minSAR);
+    double** SAR_arr =
+      (double**)para_map
+      (SAR, (void**)lines, nlines, nthreads_per_test[i]);    
+    size_t t1 = time_ms();
+    printf("Map: %ld ms\n", t1-t0);
+
+    /*for(int j=0; j<nlines; j++) {
+      printf("%f\n", *SAR_arr[j]);
+    }*/
+    double* min_SAR =
+      (double*)para_fold1
+      (min, (void**)SAR_arr, nlines, nthreads_per_test[i]);    
+    size_t t3 = time_ms();
+    printf("fold1: %ld ms\n", t3-t1);  
+    printf("minimum SAR: %f\n\n", *min_SAR);    
+  }
+  /*
+  free(min_SAR);
+  for(int j=0; j<nlines; j++) {
+    free(SAR_arr[j]);
+  }
+  free(SAR_arr);
+  */
+  printf("------------------------\n\n");
+  
+  for(int i=0; i<nlines; i++) {
+    free(lines[i]);
+  }
+  free(lines); 
+}
+
+
+
+int main() {
+  double** points1 = read_data_points(21, "points.txt");
+  //double** points2 = read_data_points(3651, "stremflow_time_series.csv");
+
+  SAR_test(points1, 6);
+  SAR_test(points1, 10);
+  SAR_test(points1, 14);
+  SAR_test(points1, 18);
+  //SAR_test(points2, 100);
+  
   return 0;
 }
