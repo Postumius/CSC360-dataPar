@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
-#include "math_functions.c"
-#include "parallel_map.c"
-#include "parallel_fold1.c"
-#include "util.c"
+#include "math_functions.h"
+#include "map.h"
+#include "fold1.h"
+#include "util.h"
 
 #define M 3651
 

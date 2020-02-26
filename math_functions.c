@@ -1,5 +1,4 @@
-#include <stdlib.h>
-
+#include "math_functions.h"
 
 double abs_val(double x) {
   return (x < 0.0 ? -1*x: x);
