@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include "map.h"
 
+//copied from here:
+//http://www.datastuff.tech/programming/how-to-code-mapreduce-in-c-from-scratch-using-threads-pt-1-map/
 
 typedef struct map_arg {
   void* (*f)(void*);
@@ -26,6 +28,8 @@ void* para_map(void* (*f)(void*), void** inputs,
   void** outputs = malloc(sizeof(void*) * length);
   map_arg args[nthreads];
   pthread_t threads[nthreads];
+
+  //prevent division by zero, so we can run it single-threaded
   int chunk_size = (nthreads > 0)? length / nthreads: 0;
 
   for(int i=0; i<nthreads; i++) {
@@ -45,26 +49,3 @@ void* para_map(void* (*f)(void*), void** inputs,
   }
   return outputs;
 }
-
-void* doub(void* number) {
-  int* n = malloc(sizeof(int));
-  *n = *((int*)number) * 2;
-  return n;
-}
-/*
-int main() {
-  int** arr = malloc(sizeof(int*) * 14);
-  for(int i = 0; i<14; i++) {
-    int* n = malloc(sizeof(int));
-    *n = i;
-    arr[i] = n;
-  }
-  //void* doubled[7];
-  //map_arg arg = {(void**)arr, doubled, doub, 0, 7};
-  //chunk_map((void*)&arg);
-  //printf("%d\n", *(int*)doub((void*)&n));
-  void** doubled = para_map(doub, (void**)arr, 14, 2);
-  for (int i = 0; i<14; i++)
-    printf("%d\n", (*(int*)doubled[i]));
-}
-*/

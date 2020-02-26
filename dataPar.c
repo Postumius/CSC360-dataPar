@@ -1,18 +1,18 @@
 #include <stdio.h>
 #include <string.h>
 #include "math_functions.h"
-#include "map.h"
-#include "fold1.h"
+#include "map.h"   //all the parallelism happens
+#include "fold1.h" //in "map.c" and "fold1.c"
 #include "util.h"
 
 
-double** read_data_points(int nlines, char* filename) {
+float** read_data_points(int nlines, char* filename) {
   FILE* fl = fopen(filename, "r");
   if(!fl) {
     fprintf(stderr, "couldn't find data file %s\n", filename);
     exit(-1);
   }  
-  double** nums = malloc(sizeof(double*) * nlines);
+  float** points = malloc(sizeof(float*) * nlines);
   
   //skip the first line
   char* line = NULL;
@@ -27,57 +27,59 @@ double** read_data_points(int nlines, char* filename) {
     }    
     char* token = strtok(line, ",\n");
     token = strtok(NULL, ",\n");
-    nums[i] = malloc(sizeof(double) * 2);
-    nums[i][0] = (double)i;
-    nums[i][1] = strtod(token, NULL);    
+    points[i] = malloc(sizeof(float) * 2);
+    points[i][0] = (float)i;
+    points[i][1] = strtod(token, NULL);
   }
-  return nums;
+  free(line);
+  fclose(fl);
+  return points;
 }
 
-
-/*
-double points[7][2] =
-  {{1.0, 87.6},
-   {2.0, 88.9},
-   {3.0, 90.4},
-   {4.0, 91.3},
-   {5.0, 92.9},
-   {6.0, 95.4},
-   {7.0, 97.8}};
-*/
-
+//a1 is y intercept, a2 is slope
 typedef struct SAR_arg {
-  double a1;
-  double a2;
-  double** points;
+  float a1;
+  float a2;
+  float** points;
   size_t npoints;
+  float sum;
 } SAR_arg;
 
 void* SAR(void* argument) {
   SAR_arg* arg = (SAR_arg*) argument;
-  double* sum = (double*)malloc(sizeof(double));
-  *sum = 0;
+  arg->sum = 0.0;
   for(int i = 0; i<arg->npoints; i++) {
-    double t = arg->points[i][0];
-    double d = arg->points[i][1];
-    *sum += abs_val(d - (arg->a1 + arg->a2*t));
+    float t = arg->points[i][0];
+    float d = arg->points[i][1];
+    arg->sum += abs_val(d - (arg->a1 + arg->a2*t));
   }
-  return sum;
+  return arg;
 }
-  
-void SAR_test(double** points, size_t npoints) {
-  printf("computing min SAR on %ld points\n", npoints);
+
+void* min_SAR(void* sar1, void* sar2) {
+  float n1 = ((SAR_arg*)sar1)->sum;
+  float n2 = ((SAR_arg*)sar2)->sum;
+  return (n1<n2)? sar1: sar2;
+}
+
+
+//given a set of points, this function finds the L1
+//with 1, 4, and 8 threads, and prints results
+void L1_test(float** points, size_t npoints) {
+  printf("computing L1 of %ld points\n", npoints);
+
+  //math combination function to find the number of pairs
   int nlines = choose(npoints, 2);
 
- 
+  //build up array of lines
   SAR_arg** lines = malloc(sizeof(SAR_arg*) * nlines);
   int k = 0;
   for(int i=0; i<npoints-1; i++) {
     for(int j=i+1; j<npoints; j++) {
-      double m =
+      float m =
         slope(points[i][0], points[i][1],
               points[j][0], points[j][1]);
-      double b = intercept(points[i][0], points[i][1], m);
+      float b = intercept(points[i][0], points[i][1], m);
       lines[k] = malloc(sizeof(SAR_arg));
       lines[k]->a1 = b;
       lines[k]->a2 = m;
@@ -86,7 +88,8 @@ void SAR_test(double** points, size_t npoints) {
       k++;      
     }
   }
-  
+
+  //nthreads represents the number of extra threads spawned
   int nthreads_per_test[3] = {0,3,7};
 
   for(int i=0; i<3; i++) {
@@ -94,29 +97,24 @@ void SAR_test(double** points, size_t npoints) {
   
     size_t t0 = time_ms();
   
-    double** SAR_arr =
-      (double**)para_map
+    SAR_arg** SAR_arr =     //using map to compute SAR of each line.
+      (SAR_arg**)para_map   //this is the O(n^3) operation
       (SAR, (void**)lines, nlines, nthreads_per_test[i]);    
     size_t t1 = time_ms();
     printf("Map: %ld ms\n", t1-t0);
 
-    /*for(int j=0; j<nlines; j++) {
-      printf("%f\n", *SAR_arr[j]);
-    }*/
-    double* min_SAR =
-      (double*)para_fold1
-      (min, (void**)SAR_arr, nlines, nthreads_per_test[i]);    
+    
+    SAR_arg* L1 =          //using fold1 to reduce the array of lines with
+      (SAR_arg*)para_fold1 //the min_SAR function, this is only O(n^2)
+      (min_SAR, (void**)SAR_arr, nlines, nthreads_per_test[i]);    
     size_t t3 = time_ms();
     printf("fold1: %ld ms\n", t3-t1);  
-    printf("minimum SAR: %f\n\n", *min_SAR);    
+    printf("L1-> intercept:%f,  slope:%f,  SAR:%f\n\n",
+           L1->a1, L1->a2, L1->sum);
+    
+    free(SAR_arr);    
   }
-  /*
-  free(min_SAR);
-  for(int j=0; j<nlines; j++) {
-    free(SAR_arr[j]);
-  }
-  free(SAR_arr);
-  */
+  
   printf("------------------------\n\n");
   
   for(int i=0; i<nlines; i++) {
@@ -126,16 +124,25 @@ void SAR_test(double** points, size_t npoints) {
 }
 
 
-
 int main() {
-  double** points1 = read_data_points(21, "points.txt");
-  //double** points2 = read_data_points(3651, "stremflow_time_series.csv");
+  float** cpi = read_data_points(21, "points.txt");
+  float** stremflow = read_data_points(3652, "stremflow_time_series.csv");
 
-  SAR_test(points1, 6);
-  SAR_test(points1, 10);
-  SAR_test(points1, 14);
-  SAR_test(points1, 18);
-  //SAR_test(points2, 100);
-  
+  L1_test(cpi, 6);
+  L1_test(cpi, 10);
+  L1_test(cpi, 14);
+  L1_test(cpi, 18);
+  L1_test(stremflow, 365);
+  L1_test(stremflow, 3652);
+
+  for(int i=0; i<21; i++) {
+    free(cpi[i]);
+  }
+  free(cpi);
+
+  for(int i=0; i<3652; i++) {
+    free(stremflow[i]);
+  }
+  free(stremflow);
   return 0;
 }

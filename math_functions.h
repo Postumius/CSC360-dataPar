@@ -1,9 +1,9 @@
-double abs_val(double x);
+float abs_val(float x);
 
 int fac(int n, int r);
 
 int choose(int n, int r);
 
-double slope(double x1, double y1, double x2, double y2);
+float slope(float x1, float y1, float x2, float y2);
 
-double intercept(double x1, double y1, double m);
+float intercept(float x1, float y1, float m);

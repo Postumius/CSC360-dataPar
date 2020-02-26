@@ -1,6 +1,6 @@
 #include "math_functions.h"
 
-double abs_val(double x) {
+float abs_val(float x) {
   return (x < 0.0 ? -1*x: x);
 }
 
@@ -17,11 +17,11 @@ int choose(int n, int r) {
   return fac(n, (n-r)) / fac(r,1);
 }
 
-double slope(double x1, double y1, double x2, double y2) {
+float slope(float x1, float y1, float x2, float y2) {
   return (y2-y1) / (x2-x1);
 }
 
-double intercept(double x1, double y1, double m) {
+float intercept(float x1, float y1, float m) {
   return y1 - m*x1;
 }
 
