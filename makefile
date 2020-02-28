@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Wall
 DEPS = math_functions.c map.c fold1.c util.c
 OBJ = math_functions.o map.o fold1.o util.o dataPar.o
 

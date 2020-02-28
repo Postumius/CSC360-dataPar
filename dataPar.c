@@ -5,6 +5,12 @@
 #include "fold1.h" //in "map.c" and "fold1.c"
 #include "util.h"
 
+void check_getline(ssize_t line_size) {
+  if(line_size < 0) {
+      fprintf(stderr, "getline error\n");
+      exit(-1);
+  }
+}
 
 float** read_data_points(int nlines, char* filename) {
   FILE* fl = fopen(filename, "r");
@@ -17,14 +23,11 @@ float** read_data_points(int nlines, char* filename) {
   //skip the first line
   char* line = NULL;
   size_t bufsize = 0;
-  getline(&line, &bufsize, fl);
+  check_getline(getline(&line, &bufsize, fl));
   
   for(int i=0; i<nlines; i++) {   
-    ssize_t line_size = getline(&line, &bufsize, fl);
-    if(line_size < 0) {
-      fprintf(stderr, "getline error\n");
-      exit(-1);
-    }    
+    check_getline(getline(&line, &bufsize, fl));
+    
     char* token = strtok(line, ",\n");
     token = strtok(NULL, ",\n");
     points[i] = malloc(sizeof(float) * 2);
@@ -90,10 +93,10 @@ void L1_test(float** points, size_t npoints) {
   }
 
   //nthreads represents the number of extra threads spawned
-  int nthreads_per_test[3] = {0,3,7};
+  int nthreads_per_test[3] = {0,4,8};
 
   for(int i=0; i<3; i++) {
-    printf("with %d threads\n", nthreads_per_test[i]+1);
+    printf("with %d threads\n", nthreads_per_test[i]);
   
     size_t t0 = time_ms();
   
