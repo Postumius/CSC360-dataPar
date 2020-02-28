@@ -137,6 +137,7 @@ int main() {
   L1_test(cpi, 18);
   L1_test(stremflow, 365);
   L1_test(stremflow, 3652);
+  //comment out the previous line if you want to run valgrind
 
   for(int i=0; i<21; i++) {
     free(cpi[i]);
@@ -147,5 +148,8 @@ int main() {
     free(stremflow[i]);
   }
   free(stremflow);
+  
+  test_fold1();
+  
   return 0;
 }
